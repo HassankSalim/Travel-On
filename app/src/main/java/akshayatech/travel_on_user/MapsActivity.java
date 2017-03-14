@@ -118,7 +118,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     duration.setText(duration_details.getString("text"));
                     LatLng latLngB = new LatLng(location_details.getDouble("lat"), location_details.getDouble("lng"));
                     mMarkerB = mMap.addMarker(new MarkerOptions().position(latLngB).draggable(true).title("MarkerB"));
-                    //Toast.makeText(MapsActivity.this, ""+overviewPolylines, Toast.LENGTH_LONG).show();
                     String encodedString = overviewPolylines.getString("points");
                     List<LatLng> list = decodePoly(encodedString);
                     Polyline line = mMap.addPolyline(new PolylineOptions().addAll(list).width(20).geodesic(true).color(Color.BLUE));

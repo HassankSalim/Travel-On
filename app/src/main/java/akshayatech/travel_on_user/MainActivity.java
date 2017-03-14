@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -34,10 +36,15 @@ import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.location.LocationSettingsStates;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.text.DateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 import static android.R.attr.type;
 
@@ -56,6 +63,11 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     EditText dest;
     Button details;
+
+    Intent intent;
+
+    String busUrl = "http://192.168.43.48:8000/myuserapp";
+    JSONObject obj;
 
 
     @Override
@@ -77,6 +89,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
         dest = (EditText) findViewById(R.id.destination);
         details = (Button) findViewById(R.id.send_details);
+        obj = new JSONObject();
 
         details.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -90,13 +103,44 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     Double lon = mCurrentLocation.getLongitude();
 //                    Toast.makeText(MainActivity.this, lat + "" + lon, Toast.LENGTH_LONG).show();
                     String type = "phone";
-                    Intent intent = new Intent(MainActivity.this, MapsActivity.class);
+                    intent = new Intent(MainActivity.this, MapsActivity.class);
 //                    Intent intent = new Intent(MainActivity.this, BusDetails.class);
                     intent.putExtra("dest", destination);
                     intent.putExtra("lon", lon + "");
                     intent.putExtra("lat", lat + "");
                     intent.putExtra("type", type);
-                    startActivity(intent);
+
+                    Geocoder geocoder;
+                    List<Address> addresses;
+                    geocoder = new Geocoder(MainActivity.this, Locale.getDefault());
+                    while(true)
+                    {
+                        try
+                        {
+                            addresses = geocoder.getFromLocation(lat, lon, 1);
+                            String adminArea = addresses.get(0).getSubAdminArea();
+                            try {
+                                Log.e("Source ", adminArea);
+                                obj.put("src", adminArea);
+                                obj.put("lon", lon);
+                                obj.put("lat", lat);
+                                obj.put("type", type);
+                            } catch (JSONException e)
+                            {
+                                e.printStackTrace();
+                            }
+                            break;
+                        }
+                        catch (IOException e)
+                        {
+                            Log.e("Final Pdt", "Nothing");
+                            e.printStackTrace();
+                            Log.e("Final Pdt", "Nothing2");
+                        }
+                    }
+
+//                    startActivity(intent);
+                    getBusLocation();
 //                    startActivity(intent);
                 }
                 else if (mLastLocation != null)
@@ -106,13 +150,13 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                     Double lat = mLastLocation.getLatitude();
                     Double lon = mLastLocation.getLongitude();
                     String type = "phone";
-                    Intent intent = new Intent(MainActivity.this, BusDetails.class);
+                    intent = new Intent(MainActivity.this, BusDetails.class);
                     intent.putExtra("dest", destination);
                     intent.putExtra("lon", lon);
                     intent.putExtra("lat", lat);
                     intent.putExtra("type", type);
-                    startActivity(intent);
-
+//                    startActivity(intent);
+                    getBusLocation();
                 }
                 else
                 {
@@ -120,6 +164,41 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
                 }
             }
         });
+    }
+
+    private void getBusLocation()
+    {
+        try {
+            obj.put("dest", dest.getText().toString().trim());
+            Log.e("data", ""+obj);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        JsonObjectRequest busRequest = new JsonObjectRequest(Request.Method.POST, busUrl, obj, new Response.Listener<JSONObject>() {
+            @Override
+            public void onResponse(JSONObject response) {
+                try
+                {
+                    Log.e("Resonse from Server", ""+response);
+                    JSONArray myarray = response.getJSONArray("details");
+                    JSONObject resp = myarray.getJSONObject(0);
+                    Log.e("array", ""+resp.getString("lat")+","+resp.getString("lon"));
+                    intent.putExtra("dest", resp.getString("lat")+","+resp.getString("lon"));
+//                    intent.putExtra("busLon", response.getDouble("busLon"));
+                    intent.putExtra("busId", resp.getInt("busnum"));
+                    startActivity(intent);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        });
+        AppController.getInstance().addToRequestQueue(busRequest);
+
     }
 
     @Override
